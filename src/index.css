@@ -1,0 +1,24 @@
+/* Reset básico */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  min-width: 320px;
+  /* Removido: background-color: #ffffff; */
+  /* Removido: color forzado */
+}
+
+/* Solo mantener estilos que no interfieran con Tailwind */
+button {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+a {
+  text-decoration: inherit;
+}
