@@ -229,6 +229,58 @@ app.delete('/api/productos/:id', (req, res) => {
   });
 });
 
+// Rutas de compatibilidad (redirigen a /api/)
+app.get('/productos', (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 4;
+  const offset = (page - 1) * limit;
+  const categoriaId = parseInt(req.query.categoria);
+
+  let countSql = 'SELECT COUNT(*) AS total FROM productos';
+  let dataSql = 'SELECT * FROM productos';
+  const countParams = [];
+  const dataParams = [];
+
+  if (!isNaN(categoriaId)) {
+    countSql += ' WHERE categoria_id = ?';
+    dataSql += ' WHERE categoria_id = ?';
+    countParams.push(categoriaId);
+    dataParams.push(categoriaId);
+  }
+
+  dataSql += ' LIMIT ? OFFSET ?';
+  dataParams.push(limit, offset);
+
+  db.query(countSql, countParams, (err, countResult) => {
+    if (err) return res.status(500).json({ error: 'Error al contar productos' });
+    const total = countResult[0].total;
+    const totalPages = Math.ceil(total / limit);
+
+    db.query(dataSql, dataParams, (err, results) => {
+      if (err) return res.status(500).json({ error: 'Error al obtener productos' });
+
+      const productos = results.map(p => ({
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        price: p.price,
+        precio_oferta: p.precio_oferta,
+        imagen: p.imagen,
+        categoria_id: p.categoria_id
+      }));
+
+      res.json({ productos, totalPages });
+    });
+  });
+});
+
+app.get('/categorias', (req, res) => {
+  db.query('SELECT * FROM categorias', (err, results) => {
+    if (err) return res.status(500).json({ error: 'Error al obtener categorías' });
+    res.json(results);
+  });
+});
+
 // USUARIOS
 app.post('/api/register', (req, res) => {
   const { nombre, email, password } = req.body;
