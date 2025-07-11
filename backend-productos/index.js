@@ -18,7 +18,7 @@ const app = express();
 // Middleware
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://tu-dominio-vercel.vercel.app'] // Cambiar por tu dominio de Vercel
+    ? ['https://ecommerce-jvetools.vercel.app'] // dominio de Vercel
     : ['http://localhost:5173', 'http://localhost:3000'],
   credentials: true
 }));
