@@ -18,7 +18,7 @@ const app = express();
 // Middleware
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://ecommerce-jvetools.vercel.app'] // dominio de Vercel
+    ? ['https://ecommerce-jvetools.vercel.app'] // dominio de Vercel (sin barra final)
     : ['http://localhost:5173', 'http://localhost:3000'],
   credentials: true
 }));
@@ -48,6 +48,23 @@ app.use((req, res, next) => {
   next();
 });
 
+// Ruta raíz
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'Backend funcionando correctamente',
+    timestamp: new Date().toISOString(),
+    endpoints: [
+      'GET /api/productos',
+      'GET /api/categorias',
+      'GET /api/buscar',
+      'POST /api/register',
+      'POST /api/login',
+      'POST /api/google-login',
+      'POST /create_preference'
+    ]
+  });
+});
+
 // Ruta de health check
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
@@ -64,7 +81,7 @@ const client = new MercadoPagoConfig({
 const preference = new Preference(client);
 
 // CATEGORIAS
-app.get('/categorias', (req, res) => {
+app.get('/api/categorias', (req, res) => {
   db.query('SELECT * FROM categorias', (err, results) => {
     if (err) return res.status(500).json({ error: 'Error al obtener categorías' });
     res.json(results);
@@ -72,7 +89,7 @@ app.get('/categorias', (req, res) => {
 });
 
 // PRODUCTOS
-app.get('/productos', (req, res) => {
+app.get('/api/productos', (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 4;
   const offset = (page - 1) * limit;
@@ -116,7 +133,7 @@ app.get('/productos', (req, res) => {
   });
 });
 
-app.get('/productos/:id', (req, res) => {
+app.get('/api/productos/:id', (req, res) => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
 
@@ -138,7 +155,7 @@ app.get('/productos/:id', (req, res) => {
   });
 });
 
-app.get('/buscar', (req, res) => {
+app.get('/api/buscar', (req, res) => {
   const busqueda = req.query.q;
   if (!busqueda || !busqueda.trim()) return res.status(400).json({ error: 'Falta término de búsqueda' });
 
@@ -161,7 +178,7 @@ app.get('/buscar', (req, res) => {
   });
 });
 
-app.post('/productos', (req, res) => {
+app.post('/api/productos', (req, res) => {
   const { name, description, price, precio_oferta, imagen, categoria_id } = req.body;
   if (!name || !price || !categoria_id) {
     return res.status(400).json({ error: 'Name, price y categoria_id son requeridos' });
@@ -186,7 +203,7 @@ app.post('/productos', (req, res) => {
   });
 });
 
-app.put('/productos/:id', (req, res) => {
+app.put('/api/productos/:id', (req, res) => {
   const id = parseInt(req.params.id);
   const { name, description, price, precio_oferta, imagen, categoria_id } = req.body;
   if (!name || !price || !categoria_id) {
@@ -204,7 +221,7 @@ app.put('/productos/:id', (req, res) => {
   });
 });
 
-app.delete('/productos/:id', (req, res) => {
+app.delete('/api/productos/:id', (req, res) => {
   const id = parseInt(req.params.id);
   db.query('DELETE FROM productos WHERE id = ?', [id], err => {
     if (err) return res.status(500).json({ error: 'Error al eliminar el producto' });
