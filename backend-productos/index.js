@@ -411,6 +411,25 @@ app.post('/webhook', (req, res) => {
   res.status(200).send('OK');
 });
 
+// Agregar esta ruta en la sección de USUARIOS (después de las rutas de login)
+app.get('/api/usuarios', (req, res) => {
+  db.query('SELECT id, nombre, email, rol FROM usuarios', (err, results) => {
+    if (err) return res.status(500).json({ error: 'Error al obtener usuarios' });
+    
+    res.json(results);
+  });
+});
+
+// Ruta de compatibilidad (sin /api/)
+app.get('/usuarios', (req, res) => {
+  db.query('SELECT id, nombre, email, rol FROM usuarios', (err, results) => {
+    if (err) return res.status(500).json({ error: 'Error al obtener usuarios' });
+    
+    res.json(results);
+  });
+});
+
+
 // Servidor
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
