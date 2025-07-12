@@ -56,6 +56,7 @@ app.get('/', (req, res) => {
     endpoints: [
       'GET /api/productos',
       'GET /api/categorias',
+      'GET /api/usuarios',
       'GET /api/buscar',
       'POST /api/register',
       'POST /api/login',
