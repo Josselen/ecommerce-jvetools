@@ -2,6 +2,8 @@ import React from 'react';
 import Swal from 'sweetalert2';
 
 function ListaProductos({ productos = [], onEditar, onEliminar }) {
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
   const eliminarProducto = async (id) => {
     const confirm = await Swal.fire({
       title: '¿Estás seguro?',
@@ -13,10 +15,32 @@ function ListaProductos({ productos = [], onEditar, onEliminar }) {
     });
 
     if (confirm.isConfirmed) {
-      await fetch(`http://localhost:3001/productos/${id}`, {
-        method: 'DELETE',
-      });
-      onEliminar();
+      try {
+        const response = await fetch(`${API_URL}/api/productos/${id}`, {
+          method: 'DELETE',
+        });
+
+        if (!response.ok) {
+          throw new Error(`Error al eliminar. Código: ${response.status}`);
+        }
+
+        Swal.fire({
+          title: 'Eliminado',
+          text: 'El producto se ha eliminado correctamente.',
+          icon: 'success',
+          timer: 1500,
+          showConfirmButton: false,
+        });
+
+        onEliminar();
+      } catch (error) {
+        console.error('Error al eliminar producto:', error);
+        Swal.fire({
+          title: 'Error',
+          text: 'No se pudo eliminar el producto. Revisa la consola para más detalles.',
+          icon: 'error',
+        });
+      }
     }
   };
 
@@ -40,7 +64,11 @@ function ListaProductos({ productos = [], onEditar, onEliminar }) {
               <td className="px-6 py-4">${Number(prod.price).toFixed(2)}</td>
               <td className="px-6 py-4">
                 {prod.imagen && (
-                  <img src={`/productos/${prod.imagen}`} alt={prod.name} className="h-12 w-12 object-contain" />
+                  <img
+                    src={`/productos/${prod.imagen}`}
+                    alt={prod.name}
+                    className="h-12 w-12 object-contain"
+                  />
                 )}
               </td>
               <td className="px-6 py-4 flex space-x-2">

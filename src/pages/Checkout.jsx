@@ -12,6 +12,7 @@ function Checkout() {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
   const total = carrito.reduce((acc, p) => acc + p.precio * p.cantidad, 0);
 
   const handlePago = async (e) => {
@@ -37,7 +38,7 @@ function Checkout() {
           cantidad: parseInt(item.cantidad) || 1
         }));
 
-        const res = await fetch('http://localhost:3001/create_preference', {
+        const res = await fetch(`${API_URL}/api/create_preference`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -78,13 +79,13 @@ function Checkout() {
           metodo_pago: 'transferencia',
           total: total.toFixed(2)
         };
-    
-        await fetch('http://localhost:3001/guardar_pedido', {
+
+        await fetch(`${API_URL}/api/guardar_pedido`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(pedidoData)
         });
-    
+
         Swal.fire({
           icon: 'success',
           title: '¡Pedido registrado!',
@@ -98,8 +99,7 @@ function Checkout() {
         console.error(error);
         Swal.fire('Error', 'Error al registrar el pedido', 'error');
       }
-    }
-     else if (metodoPago === 'whatsapp') {
+    } else if (metodoPago === 'whatsapp') {
       const mensaje = encodeURIComponent(`Hola, quiero enviar el comprobante de mi compra:\n\nNombre: ${nombre}\nEmail: ${email}\nDirección: ${direccion}\nMonto: $${total.toFixed(2)}\nGracias.`);
       const url = `https://wa.me/5491134567890?text=${mensaje}`;
       window.open(url, '_blank');
@@ -205,7 +205,7 @@ function Checkout() {
           </label>
         </div>
 
-        {/* Mostrar datos bancarios dinámicamente */}
+        {/* Datos bancarios para transferencia */}
         {metodoPago === 'transferencia' && (
           <div className="p-4 mt-4 bg-green-50 border border-green-200 rounded-lg text-sm text-gray-700">
             <p className="font-semibold mb-1">Datos para transferencia:</p>

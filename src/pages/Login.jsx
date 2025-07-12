@@ -3,11 +3,12 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider } from '../firebase';
-import { FcGoogle } from 'react-icons/fc'; // ícono de Google sin fondo
+import { FcGoogle } from 'react-icons/fc';
 
 export default function Login() {
   const { usuario, login, logout } = useAuth();
   const navigate = useNavigate();
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -17,7 +18,7 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:3001/api/login', {
+      const res = await fetch(`${API_URL}/api/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -30,7 +31,7 @@ export default function Login() {
       navigate(data.rol === 'admin' ? '/admin' : '/');
     } catch (error) {
       alert('Correo o contraseña incorrectos');
-      console.error('Error en login:', error);
+      console.error('❌ Error en login:', error);
     } finally {
       setLoading(false);
     }
@@ -44,7 +45,7 @@ export default function Login() {
 
       const requestBody = { nombre: displayName, email, googleId: uid };
 
-      const response = await fetch('http://localhost:3001/api/google-login', {
+      const response = await fetch(`${API_URL}/api/google-login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
@@ -60,7 +61,7 @@ export default function Login() {
       navigate(data.rol === 'admin' ? '/admin' : '/');
     } catch (error) {
       alert(`Error: ${error.message}`);
-      console.error(error);
+      console.error('❌ Error en login con Google:', error);
     } finally {
       setLoading(false);
     }

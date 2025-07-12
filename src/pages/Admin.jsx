@@ -6,14 +6,16 @@ export default function Admin() {
   const [productos, setProductos] = useState([]);
   const [productoEditando, setProductoEditando] = useState(null);
 
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
   const obtenerProductos = async () => {
     try {
-      const res = await fetch('http://localhost:3001/productos?limit=1000&page=1');
+      const res = await fetch(`${API_URL}/api/productos?limit=1000&page=1`);
       const data = await res.json();
-      console.log('Respuesta productos:', data);
+      console.log('✅ Respuesta productos:', data);
       setProductos(Array.isArray(data.productos) ? data.productos : []);
     } catch (error) {
-      console.error('Error al obtener productos:', error);
+      console.error('❌ Error al obtener productos:', error);
     }
   };
 
