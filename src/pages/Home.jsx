@@ -8,9 +8,13 @@ import 'swiper/css/pagination';
 
 function Home() {
   const [productos, setProductos] = useState([]);
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+  // DEBUG opcional
+  console.log('🌍 API_URL en Home:', API_URL);
 
   useEffect(() => {
-    fetch('http://localhost:3001/productos')
+    fetch(`${API_URL}/productos`)
       .then(res => res.json())
       .then(data => setProductos(data.productos?.slice(0, 4) || [])) // Solo 4 productos destacados
       .catch(err => console.error('Error al cargar productos:', err));
