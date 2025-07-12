@@ -12,6 +12,10 @@ function Productos() {
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null);
   const { agregarProducto } = useCarrito();
   const navigate = useNavigate();
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+// DEBUG: Ver qué URL está usando
+console.log('🔧 API_URL actual:', API_URL);
+console.log('🔧 VITE_API_URL desde env:', import.meta.env.VITE_API_URL);
 
   const obtenerCategorias = async () => {
     try {
