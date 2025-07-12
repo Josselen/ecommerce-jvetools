@@ -17,7 +17,7 @@ function ProductoDetalle() {
     console.log('🔍 ID del producto:', id);
     console.log('🌐 API_URL:', API_URL);
 
-    const url = `${API_URL}/productos/${id}`;
+    const url = `${API_URL}/api/productos/${id}`;
     console.log('📡 URL completa:', url);
 
     fetch(url)
