@@ -313,12 +313,28 @@ app.post('/api/register', (req, res) => {
 
 app.post('/api/login', (req, res) => {
   const { email, password } = req.body;
+  console.log('📥 Intento de login:', { email, password });
+
   db.query('SELECT * FROM usuarios WHERE email = ?', [email], (err, results) => {
-    if (err) return res.status(500).json({ error: 'Error del servidor' });
-    if (results.length === 0) return res.status(401).json({ error: 'Usuario no encontrado' });
+    if (err) {
+      console.error('❌ Error al ejecutar query:', err);
+      return res.status(500).json({ error: 'Error del servidor', details: err.message });
+    }
+
+    console.log('🔍 Resultado de la consulta:', results);
+
+    if (results.length === 0) {
+      console.warn('⚠️ Usuario no encontrado');
+      return res.status(401).json({ error: 'Usuario no encontrado' });
+    }
 
     const user = results[0];
-    if (user.password !== password) return res.status(401).json({ error: 'Contraseña incorrecta' });
+    console.log('🔑 Usuario encontrado:', user);
+
+    if (user.password !== password) {
+      console.warn('⚠️ Contraseña incorrecta');
+      return res.status(401).json({ error: 'Contraseña incorrecta' });
+    }
 
     res.json({
       id: user.id,
@@ -329,6 +345,7 @@ app.post('/api/login', (req, res) => {
     });
   });
 });
+
 
 app.post('/api/google-login', (req, res) => {
   const { nombre, email, googleId } = req.body;
