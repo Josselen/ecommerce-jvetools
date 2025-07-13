@@ -38,7 +38,7 @@ function Checkout() {
           cantidad: parseInt(item.cantidad) || 1
         }));
 
-        const res = await fetch(`${API_URL}/api/create_preference`, {
+        const res = await fetch(`${API_URL}/create_preference`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
