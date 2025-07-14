@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import mysql from 'mysql2/promise'; // Cambiado a la versión promise-based
+import mysql from 'mysql2';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { MercadoPagoConfig, Preference } from 'mercadopago';
@@ -18,7 +18,7 @@ const app = express();
 // Middleware
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://ecommerce-jvetools.vercel.app'] 
+    ? ['https://ecommerce-jvetools.vercel.app'] // dominio de Vercel (sin barra final)
     : ['http://localhost:5173', 'http://localhost:3000'],
   credentials: true
 }));
@@ -26,60 +26,34 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static('public'));
 
-// Conexión a la base de datos con Pool
-const pool = mysql.createPool({
-  host: process.env.DB_HOST || 'metro.proxy.rlwy.net',
+// Conexión a la base de datos
+const db = mysql.createConnection({
+  host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || 'QOHqMozGTHFyLZYhHclOviMVblSerThQ',
-  database: process.env.DB_NAME || 'railway',
-  port: process.env.DB_PORT || 43129,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  connectTimeout: 10000,
-  acquireTimeout: 10000
+  password: process.env.DB_PASSWORD || '18325929',
+  database: process.env.DB_NAME || 'tienda',
+  port: process.env.DB_PORT || 3306
 });
 
-// Verificar conexión a la base de datos
-const testDbConnection = async () => {
-  try {
-    const connection = await pool.getConnection();
-    console.log('✅ Conectado a la base de datos MySQL');
-    connection.release();
-    
-    // Verificar tablas esenciales
-    const [tables] = await pool.query('SHOW TABLES');
-    console.log('📊 Tablas disponibles:', tables.map(t => Object.values(t)[0]));
-  } catch (err) {
-    console.error('❌ Error de conexión a la base de datos:', {
-      message: err.message,
-      code: err.code,
-      host: pool.config.connectionConfig.host,
-      port: pool.config.connectionConfig.port
-    });
-    process.exit(1);
+db.connect(err => {
+  if (err) {
+    console.error('❌ Error al conectar con la base de datos:', err.message);
+  } else {
+    console.log('✅ Conectado a la base de datos');
   }
-};
+});
 
-testDbConnection();
-
-// Middleware de logging mejorado
+// Logging simple
 app.use((req, res, next) => {
-  const start = Date.now();
-  res.on('finish', () => {
-    const duration = Date.now() - start;
-    console.log(`${new Date().toISOString()} ${req.method} ${req.url} - ${res.statusCode} (${duration}ms)`);
-  });
+  console.log(`${new Date().toISOString()} ${req.method} ${req.url}`);
   next();
 });
 
-// Ruta raíz mejorada
+// Ruta raíz
 app.get('/', (req, res) => {
   res.json({ 
     message: 'Backend funcionando correctamente',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    dbStatus: pool.pool.config.connectionConfig,
     endpoints: [
       'GET /api/productos',
       'GET /api/categorias',
@@ -93,23 +67,9 @@ app.get('/', (req, res) => {
   });
 });
 
-// Ruta de health check mejorada
-app.get('/health', async (req, res) => {
-  try {
-    await pool.query('SELECT 1');
-    res.json({ 
-      status: 'OK',
-      timestamp: new Date().toISOString(),
-      database: 'connected',
-      uptime: process.uptime()
-    });
-  } catch (err) {
-    res.status(500).json({
-      status: 'ERROR',
-      database: 'disconnected',
-      error: err.message
-    });
-  }
+// Ruta de health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
 // INICIALIZAR MercadoPago
@@ -123,47 +83,88 @@ const client = new MercadoPagoConfig({
 const preference = new Preference(client);
 
 // CATEGORIAS
-app.get('/api/categorias', async (req, res) => {
-  try {
-    const [results] = await pool.query('SELECT * FROM categorias');
+app.get('/api/categorias', (req, res) => {
+  db.query('SELECT * FROM categorias', (err, results) => {
+    if (err) return res.status(500).json({ error: 'Error al obtener categorías' });
     res.json(results);
-  } catch (err) {
-    console.error('Error en GET /api/categorias:', err);
-    res.status(500).json({ 
-      error: 'Error al obtener categorías',
-      details: err.message
-    });
-  }
+  });
 });
 
 // PRODUCTOS
-app.get('/api/productos', async (req, res) => {
-  try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 4;
-    const offset = (page - 1) * limit;
-    const categoriaId = parseInt(req.query.categoria);
+app.get('/api/productos', (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 4;
+  const offset = (page - 1) * limit;
+  const categoriaId = parseInt(req.query.categoria);
 
-    let countSql = 'SELECT COUNT(*) AS total FROM productos';
-    let dataSql = 'SELECT * FROM productos';
-    const countParams = [];
-    const dataParams = [];
+  let countSql = 'SELECT COUNT(*) AS total FROM productos';
+  let dataSql = 'SELECT * FROM productos';
+  const countParams = [];
+  const dataParams = [];
 
-    if (!isNaN(categoriaId)) {
-      countSql += ' WHERE categoria_id = ?';
-      dataSql += ' WHERE categoria_id = ?';
-      countParams.push(categoriaId);
-      dataParams.push(categoriaId);
-    }
+  if (!isNaN(categoriaId)) {
+    countSql += ' WHERE categoria_id = ?';
+    dataSql += ' WHERE categoria_id = ?';
+    countParams.push(categoriaId);
+    dataParams.push(categoriaId);
+  }
 
-    dataSql += ' LIMIT ? OFFSET ?';
-    dataParams.push(limit, offset);
+  dataSql += ' LIMIT ? OFFSET ?';
+  dataParams.push(limit, offset);
 
-    const [[countResult]] = await pool.query(countSql, countParams);
-    const total = countResult.total;
+  db.query(countSql, countParams, (err, countResult) => {
+    if (err) return res.status(500).json({ error: 'Error al contar productos' });
+    const total = countResult[0].total;
     const totalPages = Math.ceil(total / limit);
 
-    const [results] = await pool.query(dataSql, dataParams);
+    db.query(dataSql, dataParams, (err, results) => {
+      if (err) return res.status(500).json({ error: 'Error al obtener productos' });
+
+      const productos = results.map(p => ({
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        price: p.price,
+        precio_oferta: p.precio_oferta,
+        imagen: p.imagen,
+        categoria_id: p.categoria_id
+      }));
+
+      res.json({ productos, totalPages });
+    });
+  });
+});
+
+app.get('/api/productos/:id', (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
+
+  db.query('SELECT * FROM productos WHERE id = ?', [id], (err, results) => {
+    if (err) return res.status(500).json({ error: 'Error al obtener el producto' });
+    if (results.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
+    
+    const p = results[0];
+    const producto = {
+      id: p.id,
+      name: p.name,
+      description: p.description,
+      price: p.price,
+      precio_oferta: p.precio_oferta || null,
+      imagen: p.imagen,
+      categoria_id: p.categoria_id
+    };
+    res.json(producto);
+  });
+});
+
+app.get('/api/buscar', (req, res) => {
+  const busqueda = req.query.q;
+  if (!busqueda || !busqueda.trim()) return res.status(400).json({ error: 'Falta término de búsqueda' });
+
+  const sql = 'SELECT * FROM productos WHERE name LIKE ?';
+  const term = `%${busqueda.trim()}%`;
+  db.query(sql, [term], (err, results) => {
+    if (err) return res.status(500).json({ error: 'Error en la búsqueda' });
 
     const productos = results.map(p => ({
       id: p.id,
@@ -175,92 +176,274 @@ app.get('/api/productos', async (req, res) => {
       categoria_id: p.categoria_id
     }));
 
-    res.json({ productos, totalPages });
-  } catch (err) {
-    console.error('Error en GET /api/productos:', err);
-    res.status(500).json({ 
-      error: 'Error al obtener productos',
-      details: err.message
-    });
-  }
-});
-
-// Resto de tus rutas de productos con async/await
-app.get('/api/productos/:id', async (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) return res.status(400).json({ error: 'ID inválido' });
-
-    const [results] = await pool.query('SELECT * FROM productos WHERE id = ?', [id]);
-    
-    if (results.length === 0) {
-      return res.status(404).json({ error: 'Producto no encontrado' });
-    }
-    
-    const p = results[0];
-    res.json({
-      id: p.id,
-      name: p.name,
-      description: p.description,
-      price: p.price,
-      precio_oferta: p.precio_oferta || null,
-      imagen: p.imagen,
-      categoria_id: p.categoria_id
-    });
-  } catch (err) {
-    console.error('Error en GET /api/productos/:id:', err);
-    res.status(500).json({ error: 'Error al obtener el producto' });
-  }
-});
-
-// USUARIOS
-app.post('/api/register', async (req, res) => {
-  try {
-    const { nombre, email, password } = req.body;
-    if (!nombre || !email || !password) {
-      return res.status(400).json({ error: 'Faltan datos requeridos' });
-    }
-
-    const [result] = await pool.query(
-      'INSERT INTO usuarios (nombre, email, password) VALUES (?, ?, ?)',
-      [nombre, email, password]
-    );
-    
-    res.status(201).json({ 
-      id: result.insertId, 
-      nombre, 
-      email, 
-      rol: 'user' 
-    });
-  } catch (err) {
-    console.error('Error en POST /api/register:', err);
-    
-    if (err.code === 'ER_DUP_ENTRY') {
-      return res.status(400).json({ error: 'El email ya está registrado' });
-    }
-    
-    res.status(500).json({ 
-      error: 'Error al registrar usuario',
-      details: err.message
-    });
-  }
-});
-
-// Resto de tus rutas convertidas a async/await...
-
-// MERCADOPAGO (ya estaba bien)
-app.post('/create_preference', async (req, res) => {
-  // ... (mantener tu implementación actual)
-});
-
-// Manejo de errores global
-app.use((err, req, res, next) => {
-  console.error('🔥 Error global:', err);
-  res.status(500).json({
-    error: 'Error interno del servidor',
-    message: err.message,
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    res.json(productos);
   });
+});
+
+app.post('/api/productos', (req, res) => {
+  const { name, description, price, precio_oferta, imagen, categoria_id } = req.body;
+  if (!name || !price || !categoria_id) {
+    return res.status(400).json({ error: 'Name, price y categoria_id son requeridos' });
+  }
+
+  const sql = `
+    INSERT INTO productos
+      (name, description, price, precio_oferta, imagen, categoria_id)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `;
+  db.query(sql, [name, description, price, precio_oferta, imagen, categoria_id], (err, result) => {
+    if (err) return res.status(500).json({ error: 'Error al crear producto' });
+    res.status(201).json({
+      id: result.insertId,
+      name,
+      description,
+      price,
+      precio_oferta,
+      imagen,
+      categoria_id
+    });
+  });
+});
+
+app.put('/api/productos/:id', (req, res) => {
+  const id = parseInt(req.params.id);
+  const { name, description, price, precio_oferta, imagen, categoria_id } = req.body;
+  if (!name || !price || !categoria_id) {
+    return res.status(400).json({ error: 'Name, price y categoria_id son requeridos' });
+  }
+
+  const sql = `
+    UPDATE productos
+    SET name = ?, description = ?, price = ?, precio_oferta = ?, imagen = ?, categoria_id = ?
+    WHERE id = ?
+  `;
+  db.query(sql, [name, description, price, precio_oferta, imagen, categoria_id, id], err => {
+    if (err) return res.status(500).json({ error: 'Error al actualizar producto' });
+    res.json({ message: 'Producto actualizado correctamente' });
+  });
+});
+
+app.delete('/api/productos/:id', (req, res) => {
+  const id = parseInt(req.params.id);
+  db.query('DELETE FROM productos WHERE id = ?', [id], err => {
+    if (err) return res.status(500).json({ error: 'Error al eliminar el producto' });
+    res.json({ message: 'Producto eliminado correctamente' });
+  });
+});
+
+// Rutas de compatibilidad (redirigen a /api/)
+app.get('/productos', (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 4;
+  const offset = (page - 1) * limit;
+  const categoriaId = parseInt(req.query.categoria);
+
+  let countSql = 'SELECT COUNT(*) AS total FROM productos';
+  let dataSql = 'SELECT * FROM productos';
+  const countParams = [];
+  const dataParams = [];
+
+  if (!isNaN(categoriaId)) {
+    countSql += ' WHERE categoria_id = ?';
+    dataSql += ' WHERE categoria_id = ?';
+    countParams.push(categoriaId);
+    dataParams.push(categoriaId);
+  }
+
+  dataSql += ' LIMIT ? OFFSET ?';
+  dataParams.push(limit, offset);
+
+  db.query(countSql, countParams, (err, countResult) => {
+    if (err) return res.status(500).json({ error: 'Error al contar productos' });
+    const total = countResult[0].total;
+    const totalPages = Math.ceil(total / limit);
+
+    db.query(dataSql, dataParams, (err, results) => {
+      if (err) return res.status(500).json({ error: 'Error al obtener productos' });
+
+      const productos = results.map(p => ({
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        price: p.price,
+        precio_oferta: p.precio_oferta,
+        imagen: p.imagen,
+        categoria_id: p.categoria_id
+      }));
+
+      res.json({ productos, totalPages });
+    });
+  });
+});
+
+app.get('/categorias', (req, res) => {
+  db.query('SELECT * FROM categorias', (err, results) => {
+    if (err) return res.status(500).json({ error: 'Error al obtener categorías' });
+    res.json(results);
+  });
+});
+// Agregar esta ruta en la sección de USUARIOS (después de las rutas de login)
+app.get('/api/usuarios', (req, res) => {
+  db.query('SELECT id, nombre, email, rol FROM usuarios', (err, results) => {
+    if (err) return res.status(500).json({ error: 'Error al obtener usuarios' });
+    
+    res.json(results);
+  });
+});
+
+// Ruta de compatibilidad (sin /api/)
+app.get('/usuarios', (req, res) => {
+  db.query('SELECT id, nombre, email, rol FROM usuarios', (err, results) => {
+    if (err) return res.status(500).json({ error: 'Error al obtener usuarios' });
+    
+    res.json(results);
+  });
+});
+// USUARIOS
+app.post('/api/register', (req, res) => {
+  const { nombre, email, password } = req.body;
+  if (!nombre || !email || !password) return res.status(400).json({ error: 'Faltan datos requeridos' });
+
+  const sql = 'INSERT INTO usuarios (nombre, email, password) VALUES (?, ?, ?)';
+  db.query(sql, [nombre, email, password], (err, result) => {
+    if (err) return res.status(500).json({ error: 'Error al registrar usuario' });
+    res.status(201).json({ id: result.insertId, nombre, email, rol: 'user' });
+  });
+});
+
+app.post('/api/login', (req, res) => {
+  const { email, password } = req.body;
+  console.log('📥 Intento de login:', { email, password });
+
+  db.query('SELECT * FROM usuarios WHERE email = ?', [email], (err, results) => {
+    if (err) {
+      console.error('❌ Error al ejecutar query:', err);
+      return res.status(500).json({ error: 'Error del servidor', details: err.message });
+    }
+
+    console.log('🔍 Resultado de la consulta:', results);
+
+    if (results.length === 0) {
+      console.warn('⚠️ Usuario no encontrado');
+      return res.status(401).json({ error: 'Usuario no encontrado' });
+    }
+
+    const user = results[0];
+    console.log('🔑 Usuario encontrado:', user);
+
+    if (user.password !== password) {
+      console.warn('⚠️ Contraseña incorrecta');
+      return res.status(401).json({ error: 'Contraseña incorrecta' });
+    }
+
+    res.json({
+      id: user.id,
+      nombre: user.nombre,
+      email: user.email,
+      rol: user.rol || 'user',
+      metodo: 'email'
+    });
+  });
+});
+
+
+app.post('/api/google-login', (req, res) => {
+  const { nombre, email, googleId } = req.body;
+  if (!email || !googleId) return res.status(400).json({ error: 'Faltan datos obligatorios' });
+
+  db.query('SELECT * FROM usuarios WHERE email = ?', [email], (err, results) => {
+    if (err) return res.status(500).json({ error: 'Error del servidor' });
+
+    if (results.length > 0) {
+      const user = results[0];
+      if (!user.googleId) {
+        db.query('UPDATE usuarios SET googleId = ? WHERE id = ?', [googleId, user.id], upErr => {
+          if (upErr) return res.status(500).json({ error: 'Error al actualizar usuario' });
+          res.json({ id: user.id, nombre: user.nombre, email: user.email, rol: user.rol || 'user', metodo: 'google' });
+        });
+      } else {
+        res.json({ id: user.id, nombre: user.nombre, email: user.email, rol: user.rol || 'user', metodo: 'google' });
+      }
+    } else {
+      db.query('INSERT INTO usuarios (nombre, email, googleId) VALUES (?, ?, ?)', [nombre, email, googleId], (inErr, result) => {
+        if (inErr) return res.status(500).json({ error: 'Error al crear usuario' });
+        res.status(201).json({ id: result.insertId, nombre, email, rol: 'user', metodo: 'google' });
+      });
+    }
+  });
+});
+
+// MERCADOPAGO
+app.post('/create_preference', async (req, res) => {
+  const { carrito, nombre, email, direccion, baseUrl } = req.body;
+
+  console.log('📦 Datos recibidos:', { carrito, nombre, email, direccion, baseUrl });
+
+  if (!carrito || carrito.length === 0) {
+    return res.status(400).json({ error: 'El carrito está vacío' });
+  }
+
+  if (!nombre || !email || !direccion) {
+    return res.status(400).json({ error: 'Faltan datos del comprador' });
+  }
+
+  const frontendUrl = baseUrl || process.env.FRONTEND_URL || 'http://localhost:5173';
+  console.log('🌐 URL base detectada:', frontendUrl);
+
+  const items = carrito.map(item => {
+    const title = item.name || item.nombre || 'Producto';
+    const quantity = parseInt(item.cantidad) || 1;
+    const unitPrice = parseFloat(item.precio || item.price) || 0;
+
+    return {
+      title: title,
+      quantity: quantity,
+      currency_id: 'ARS',
+      unit_price: unitPrice,
+    };
+  });
+
+  const preferenceData = {
+    items: items,
+    payer: {
+      name: nombre,
+      email: email,
+    },
+    back_urls: {
+      success: `${frontendUrl}/success`,
+      failure: `${frontendUrl}/failure`, 
+      pending: `${frontendUrl}/pending`
+    },
+    external_reference: `order_${Date.now()}`,
+    statement_descriptor: "Tu Tienda"
+  };
+
+  try {
+    const response = await preference.create({
+      body: preferenceData
+    });
+    
+    console.log('✅ Preferencia creada exitosamente:', response.id);
+    
+    res.json({ 
+      id: response.id,
+      sandbox_init_point: response.sandbox_init_point,
+      init_point: response.init_point,
+      status: 'success'
+    });
+    
+  } catch (error) {
+    console.error('❌ Error al crear preferencia:', error);
+    res.status(500).json({ 
+      error: 'Error al crear preferencia de pago',
+      details: error.message || 'Error desconocido'
+    });
+  }
+});
+
+app.post('/webhook', (req, res) => {
+  console.log('🔔 Webhook recibido:', req.body);
+  res.status(200).send('OK');
 });
 
 // Servidor
@@ -268,5 +451,4 @@ const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`🚀 Servidor escuchando en puerto ${PORT}`);
   console.log(`🌍 Ambiente: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 URL: http://localhost:${PORT}`);
 });
