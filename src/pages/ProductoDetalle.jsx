@@ -16,7 +16,7 @@ function ProductoDetalle() {
   useEffect(() => {
     const cargarProducto = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/productos/${id}`);
+        const res = await fetch(`${API_URL}/productos/${id}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         setProducto(data);
@@ -58,7 +58,11 @@ function ProductoDetalle() {
     <div className="max-w-5xl mx-auto px-4 py-10 grid md:grid-cols-2 gap-10">
       <div className="bg-white rounded-2xl shadow p-6">
         <img
-          src={producto.imagen}
+          src={
+            producto.imagen?.startsWith("/")
+              ? producto.imagen
+              : `/productos/${producto.imagen}`
+          }
           alt={producto.name}
           onError={(e) => {
             e.target.src = "/placeholder-image.jpg";

@@ -210,7 +210,7 @@ function Productos() {
                 </button>
 
                 <Link
-                  to={`/producto/${producto.id}`}
+                  to={`/productos/${producto.id}`}
                   className="border border-gray-300 px-4 py-2 rounded-lg"
                 >
                   Detalle
