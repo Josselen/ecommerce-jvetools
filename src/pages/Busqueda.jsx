@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
-import { useCarrito } from '../context/CarritoContext';
-import { dispararSweetBasico } from '../assets/SweetAlert';
+import React, { useEffect, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { useCarrito } from "../context/CarritoContext";
+import { dispararSweetBasico } from "../assets/SweetAlert";
+import { demoProducts } from "../data/demoProducts";
 
 function Busqueda() {
   const [productos, setProductos] = useState([]);
@@ -10,73 +11,93 @@ function Busqueda() {
   const { agregarProducto } = useCarrito();
   const location = useLocation();
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
   const params = new URLSearchParams(location.search);
-  const q = params.get('q');
+  const q = params.get("q");
 
   useEffect(() => {
     const buscarProductos = async () => {
-      if (!q || q.trim() === '') {
-        setError('No se proporcionó término de búsqueda');
+      if (!q || q.trim() === "") {
+        setError("No se proporcionó término de búsqueda");
         setCargando(false);
         return;
       }
+
       try {
         setCargando(true);
         setError(null);
-        const response = await fetch(`${API_URL}/api/buscar?q=${encodeURIComponent(q.trim())}`);
+
+        const response = await fetch(
+          `${API_URL}/api/buscar?q=${encodeURIComponent(q.trim())}`
+        );
+
         if (!response.ok) throw new Error(`Error ${response.status}: ${response.statusText}`);
+
         const data = await response.json();
-        setProductos(data || []);
+        setProductos(Array.isArray(data) ? data : []);
       } catch (err) {
-        setError(`Error al buscar productos: ${err.message}`);
+        console.error("Usando búsqueda demo:", err);
+
+        const termino = q.trim().toLowerCase();
+
+        const resultadosDemo = demoProducts.filter((producto) => {
+          const nombre = producto.name?.toLowerCase() || "";
+          const descripcion = producto.description?.toLowerCase() || "";
+          const categoria = producto.categoria_nombre?.toLowerCase() || "";
+
+          return (
+            nombre.includes(termino) ||
+            descripcion.includes(termino) ||
+            categoria.includes(termino)
+          );
+        });
+
+        setProductos(resultadosDemo);
       } finally {
         setCargando(false);
       }
     };
+
     buscarProductos();
-  }, [q]);
+  }, [q, API_URL]);
 
   const agregarAlCarrito = (producto) => {
     agregarProducto(
       {
         id: producto.id,
         nombre: producto.name,
-        precio: Number(producto.price),
+        precio: Number(producto.precio_oferta || producto.price),
         imagen: producto.imagen,
       },
       1
     );
+
     dispararSweetBasico(
-      'Producto Agregado',
-      'El producto fue agregado al carrito con éxito',
-      'success',
-      'Cerrar'
+      "Producto Agregado",
+      "El producto fue agregado al carrito con éxito",
+      "success",
+      "Cerrar"
     );
   };
 
-  if (cargando)
+  if (cargando) {
     return (
       <div className="flex justify-center items-center min-h-[50vh]">
         <p className="text-gray-600 text-lg">Cargando resultados...</p>
       </div>
     );
+  }
 
-  if (error)
+  if (error) {
     return (
       <div className="text-center max-w-md mx-auto bg-red-50 border border-red-200 rounded-lg p-6 mt-10">
         <h2 className="text-xl font-semibold text-red-600 mb-2">Error en la búsqueda</h2>
         <p className="text-gray-700 mb-4">{error}</p>
-        <button
-          onClick={() => window.location.reload()} // o navigate('/') si prefieres
-          className="bg-[#117287] text-white px-4 py-2 rounded hover:bg-[#0e5c6a] transition"
-        >
-          Intentar de nuevo
-        </button>
       </div>
     );
+  }
 
-  if (!productos || productos.length === 0)
+  if (!productos || productos.length === 0) {
     return (
       <div className="text-center max-w-md mx-auto bg-gray-50 border border-gray-200 rounded-lg p-6 mt-10">
         <h2 className="text-xl font-semibold text-gray-800 mb-2">Sin resultados</h2>
@@ -84,6 +105,7 @@ function Busqueda() {
         <p className="text-gray-600">Intenta con otros términos de búsqueda.</p>
       </div>
     );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -102,15 +124,22 @@ function Busqueda() {
           >
             <div className="bg-gray-50 rounded-t-xl flex justify-center items-center h-48 overflow-hidden">
               <img
-                src={producto.imagen ? `/productos/${producto.imagen}` : '/placeholder-image.jpg'}
+                src={
+                  producto.imagen?.startsWith("/")
+                    ? producto.imagen
+                    : producto.imagen
+                    ? `/productos/${producto.imagen}`
+                    : "/placeholder-image.jpg"
+                }
                 alt={producto.name}
                 className="object-contain h-full max-w-full"
                 onError={(e) => {
                   e.target.onerror = null;
-                  e.target.src = '/placeholder-image.jpg';
+                  e.target.src = "/placeholder-image.jpg";
                 }}
               />
             </div>
+
             <div className="p-4 flex flex-col flex-1">
               <h3 className="text-lg font-semibold text-gray-800 mb-1 text-center">
                 {producto.name}
@@ -119,14 +148,24 @@ function Busqueda() {
                 {producto.description}
               </p>
               <p className="text-xl font-bold text-[#117287] text-center mb-4">
-                ${parseFloat(producto.price).toFixed(2)}
+                ${parseFloat(producto.precio_oferta || producto.price).toFixed(2)}
               </p>
-              <button
-                onClick={() => agregarAlCarrito(producto)}
-                className="bg-[#117287] text-white px-4 py-2 rounded hover:bg-[#0e5c6a] transition mt-auto"
-              >
-                Agregar al carrito
-              </button>
+
+              <div className="flex flex-col gap-2 mt-auto">
+                <button
+                  onClick={() => agregarAlCarrito(producto)}
+                  className="bg-[#117287] text-white px-4 py-2 rounded hover:bg-[#0e5c6a] transition"
+                >
+                  Agregar al carrito
+                </button>
+
+                <Link
+                  to={`/productos/${producto.id}`}
+                  className="border border-[#117287] text-[#117287] px-4 py-2 rounded text-center hover:bg-gray-50 transition"
+                >
+                  Ver detalle
+                </Link>
+              </div>
             </div>
           </div>
         ))}

@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { useCarrito } from '../context/CarritoContext';
-import { Link, useNavigate } from 'react-router-dom';
-import Swal from 'sweetalert2';
+import React, { useEffect, useState } from "react";
+import { useCarrito } from "../context/CarritoContext";
+import { Link, useNavigate } from "react-router-dom";
+import Swal from "sweetalert2";
+import { demoProducts, demoCategorias } from "../data/demoProducts";
 
 function Productos() {
   const [productos, setProductos] = useState([]);
@@ -10,200 +11,220 @@ function Productos() {
   const [totalPaginas, setTotalPaginas] = useState(1);
   const [categorias, setCategorias] = useState([]);
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null);
+
   const { agregarProducto } = useCarrito();
   const navigate = useNavigate();
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-// DEBUG: Ver qué URL está usando
-console.log('🔧 API_URL actual:', API_URL);
-console.log('🔧 VITE_API_URL desde env:', import.meta.env.VITE_API_URL);
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
-  const obtenerCategorias = async () => {
-    try {
-      const res = await fetch(`${API_URL}/categorias`);
-      const data = await res.json();
-      setCategorias(data);
-    } catch (err) {
-      console.error('Error al obtener categorías:', err);
-    }
-  };
-
-  const obtenerProductos = async () => {
-    try {
-      let url = `${API_URL}/productos?page=${pagina}&limit=6`;
-      if (categoriaSeleccionada) {
-        url += `&categoria=${categoriaSeleccionada}`;
+  useEffect(() => {
+    const cargarCategorias = async () => {
+      try {
+        const res = await fetch(`${API_URL}/categorias`);
+        if (!res.ok) throw new Error("Error al cargar categorías");
+        const data = await res.json();
+        setCategorias(data);
+      } catch (error) {
+        console.error("Usando categorías demo:", error);
+        setCategorias(demoCategorias);
       }
-      const res = await fetch(url);
-      const data = await res.json();
-      console.log('Productos recibidos:', data.productos); // <- AGREGA ESTA LÍNEA
-      setProductos(Array.isArray(data.productos) ? data.productos : []);
-      setTotalPaginas(data.totalPages || 1);
-    } catch (err) {
-      console.error('Error al obtener productos:', err);
-    }
-  };
+    };
+
+    cargarCategorias();
+  }, [API_URL]);
 
   useEffect(() => {
-    obtenerCategorias();
-  }, []);
+    const cargarProductos = async () => {
+      try {
+        let url = `${API_URL}/productos?page=${pagina}&limit=6`;
+        if (categoriaSeleccionada) {
+          url += `&categoria=${categoriaSeleccionada}`;
+        }
 
-  useEffect(() => {
-    obtenerProductos();
-  }, [pagina, categoriaSeleccionada]);
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Error al cargar productos");
+        const data = await res.json();
+
+        setProductos(Array.isArray(data.productos) ? data.productos : []);
+        setTotalPaginas(data.totalPages || 1);
+      } catch (error) {
+        console.error("Usando productos demo:", error);
+
+        let filtrados = [...demoProducts];
+        if (categoriaSeleccionada) {
+          filtrados = filtrados.filter(
+            (p) => Number(p.categoria) === Number(categoriaSeleccionada)
+          );
+        }
+
+        const limit = 6;
+        const inicio = (pagina - 1) * limit;
+        const fin = inicio + limit;
+        setProductos(filtrados.slice(inicio, fin));
+        setTotalPaginas(Math.max(1, Math.ceil(filtrados.length / limit)));
+      }
+    };
+
+    cargarProductos();
+  }, [API_URL, pagina, categoriaSeleccionada]);
 
   const aumentar = (id) => {
-    setCantidades(prev => ({ ...prev, [id]: (prev[id] || 1) + 1 }));
+    setCantidades((prev) => ({
+      ...prev,
+      [id]: (prev[id] || 1) + 1,
+    }));
   };
 
   const disminuir = (id) => {
-    setCantidades(prev => ({ ...prev, [id]: Math.max((prev[id] || 1) - 1, 1) }));
+    setCantidades((prev) => ({
+      ...prev,
+      [id]: Math.max((prev[id] || 1) - 1, 1),
+    }));
   };
 
   const agregarAlCarrito = (producto) => {
     const cantidad = cantidades[producto.id] || 1;
-    agregarProducto({
-      id: producto.id,
-      nombre: producto.name,
-      precio: Number(producto.price),
-      imagen: producto.imagen
-    }, cantidad);
 
-    setCantidades(prev => ({ ...prev, [producto.id]: 1 }));
+    agregarProducto(
+      {
+        id: producto.id,
+        nombre: producto.name,
+        precio: Number(producto.precio_oferta || producto.price),
+        imagen: producto.imagen,
+      },
+      cantidad
+    );
+
+    setCantidades((prev) => ({ ...prev, [producto.id]: 1 }));
 
     Swal.fire({
-      title: 'Producto agregado',
-      text: '¿Deseas ir al carrito?',
-      icon: 'success',
+      title: "Producto agregado",
+      text: "¿Deseas ir al carrito?",
+      icon: "success",
       showCancelButton: true,
-      confirmButtonText: 'Sí, ir al carrito',
-      cancelButtonText: 'Seguir comprando'
-    }).then(result => {
-      if (result.isConfirmed) {
-        navigate('/carrito');
-      }
+      confirmButtonText: "Sí, ir al carrito",
+      cancelButtonText: "Seguir comprando",
+    }).then((result) => {
+      if (result.isConfirmed) navigate("/carrito");
     });
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 flex flex-col md:flex-row gap-6">
+    <div className="max-w-7xl mx-auto px-4 py-8 grid md:grid-cols-[240px_1fr] gap-8">
+      <aside className="bg-white rounded-2xl shadow p-4 h-fit">
+        <h3 className="text-xl font-bold mb-4">Categorías</h3>
 
-      {/* Sidebar de categorías */}
-      <div className="w-full md:w-1/4 bg-white shadow rounded p-4">
-        <h3 className="text-lg font-semibold mb-4">Categorías</h3>
-        <ul className="space-y-2">
-          <li>
-            <button
-              onClick={() => { setCategoriaSeleccionada(null); setPagina(1); }}
-              className={`w-full text-left px-3 py-2 rounded hover:bg-gray-100 transition ${
-                categoriaSeleccionada === null ? 'bg-blue-600 text-white' : 'text-gray-700'
-              }`}
-            >
-              Todas
-            </button>
-          </li>
-          {categorias.map(cat => (
-            <li key={cat.id}>
-              <button
-                onClick={() => { setCategoriaSeleccionada(cat.id); setPagina(1); }}
-                className={`w-full text-left px-3 py-2 rounded hover:bg-gray-100 transition ${
-                  categoriaSeleccionada === cat.id ? 'bg-blue-600 text-white' : 'text-gray-700'
-                }`}
-              >
-                {cat.nombre}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </div>
+        <button
+          onClick={() => {
+            setCategoriaSeleccionada(null);
+            setPagina(1);
+          }}
+          className={`w-full text-left px-3 py-2 rounded mb-2 ${
+            categoriaSeleccionada === null
+              ? "bg-blue-600 text-white"
+              : "text-gray-700 hover:bg-gray-100"
+          }`}
+        >
+          Todas
+        </button>
 
-      {/* Sección de productos */}
-      <div className="flex-1">
-        <h2 className="text-2xl font-bold text-center mb-6">Productos Disponibles</h2>
+        {categorias.map((cat) => (
+          <button
+            key={cat.id}
+            onClick={() => {
+              setCategoriaSeleccionada(cat.id);
+              setPagina(1);
+            }}
+            className={`w-full text-left px-3 py-2 rounded mb-2 ${
+              categoriaSeleccionada === cat.id
+                ? "bg-blue-600 text-white"
+                : "text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            {cat.nombre}
+          </button>
+        ))}
+      </aside>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {productos.map(producto => (
-            <div key={producto.id} className="bg-white shadow rounded p-4 flex flex-col justify-between">
+      <section>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold">Productos Disponibles</h2>
+          <span className="text-sm text-gray-500">Demo portfolio</span>
+        </div>
+
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {productos.map((producto) => (
+            <div key={producto.id} className="bg-white rounded-2xl shadow p-4">
               <img
-                src={`/productos/${producto.imagen}`}
+                src={producto.imagen}
                 alt={producto.name}
-                onError={(e) => { e.target.src = '/placeholder-image.jpg'; }}
+                onError={(e) => {
+                  e.target.src = "/placeholder-image.jpg";
+                }}
                 className="w-full h-40 object-contain mb-3"
               />
-              <h3 className="text-lg font-semibold mb-1">{producto.name}</h3>
-              <p className="text-sm text-gray-600 line-clamp-2 mb-2">{producto.description}</p>
-              
-              {/* AGREGA ESTAS LÍNEAS PARA DEBUG */}
-    {console.log(`Producto ${producto.id}:`, {
-      price: producto.price,
-      precio_oferta: producto.precio_oferta,
-      tipo_precio_oferta: typeof producto.precio_oferta
-    })}
-              {/* Precio */}
-<div className="mb-3 flex items-center gap-2">
-  {producto.precio_oferta && producto.precio_oferta > 0 && (
-    <span className="text-red-500 line-through text-sm">
-      ${parseFloat(producto.price).toFixed(2)}
-    </span>
-  )}
-  <span
-    className={`font-bold text-lg ${
-      producto.precio_oferta && producto.precio_oferta > 0 ? 'text-green-600' : 'text-gray-800'
-    }`}
-  >
-    ${
-      producto.precio_oferta && producto.precio_oferta > 0
-        ? parseFloat(producto.precio_oferta).toFixed(2)
-        : parseFloat(producto.price).toFixed(2)
-    }
-  </span>
-  {producto.precio_oferta && producto.precio_oferta > 0 && (
-    <span className="bg-red-500 text-white text-xs px-2 py-1 rounded">
-      OFERTA
-    </span>
-  )}
-</div>
 
+              <h3 className="text-lg font-semibold mb-2">{producto.name}</h3>
+              <p className="text-sm text-gray-600 mb-3">{producto.description}</p>
 
+              {producto.precio_oferta && producto.precio_oferta > 0 && (
+                <p className="text-sm text-gray-400 line-through">
+                  ${parseFloat(producto.price).toFixed(2)}
+                </p>
+              )}
 
+              <p
+                className={`text-lg font-bold mb-4 ${
+                  producto.precio_oferta && producto.precio_oferta > 0
+                    ? "text-green-600"
+                    : "text-gray-800"
+                }`}
+              >
+                $
+                {producto.precio_oferta && producto.precio_oferta > 0
+                  ? parseFloat(producto.precio_oferta).toFixed(2)
+                  : parseFloat(producto.price).toFixed(2)}
+              </p>
 
-              <div className="flex items-center justify-center gap-3 mb-3">
+              <div className="flex items-center gap-3 mb-4">
                 <button
                   onClick={() => disminuir(producto.id)}
-                  className="bg-gray-200 px-2 py-1 rounded text-lg"
-                >-</button>
+                  className="bg-gray-200 px-3 py-1 rounded"
+                >
+                  -
+                </button>
                 <span>{cantidades[producto.id] || 1}</span>
                 <button
                   onClick={() => aumentar(producto.id)}
-                  className="bg-gray-200 px-2 py-1 rounded text-lg"
-                >+</button>
+                  className="bg-gray-200 px-3 py-1 rounded"
+                >
+                  +
+                </button>
               </div>
 
-              <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
                 <button
-                  className="bg-[#117287] hover:bg-gray-700 text-white py-2 rounded font-semibold"
                   onClick={() => agregarAlCarrito(producto)}
+                  className="bg-black text-white px-4 py-2 rounded-lg"
                 >
-                  Agregar al carrito
+                  Agregar
                 </button>
+
                 <Link
-                  to={`/productos/${producto.id}`}
-                  className="bg-[#117287] hover:bg-gray-700 text-white py-2 rounded text-center font-semibold"
+                  to={`/producto/${producto.id}`}
+                  className="border border-gray-300 px-4 py-2 rounded-lg"
                 >
-                  Detalle del Producto
+                  Detalle
                 </Link>
               </div>
             </div>
           ))}
         </div>
 
-        {/* Paginación */}
-        <div className="mt-8 flex items-center justify-center space-x-2">
+        <div className="flex flex-wrap gap-2 mt-8 justify-center">
           <button
             onClick={() => setPagina((p) => Math.max(p - 1, 1))}
             disabled={pagina === 1}
-            className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
-              pagina === 1 ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-white border border-gray-300 hover:bg-gray-50 text-gray-700"
-            }`}
+            className="px-3 py-2 rounded-lg border"
           >
             ⬅ Anterior
           </button>
@@ -212,8 +233,8 @@ console.log('🔧 VITE_API_URL desde env:', import.meta.env.VITE_API_URL);
             <button
               key={i}
               onClick={() => setPagina(i + 1)}
-              className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
-                pagina === i + 1 ? "bg-blue-600 text-white" : "bg-white border border-gray-300 hover:bg-gray-50 text-gray-700"
+              className={`px-3 py-2 rounded-lg border ${
+                pagina === i + 1 ? "bg-blue-600 text-white" : ""
               }`}
             >
               {i + 1}
@@ -223,14 +244,12 @@ console.log('🔧 VITE_API_URL desde env:', import.meta.env.VITE_API_URL);
           <button
             onClick={() => setPagina((p) => Math.min(p + 1, totalPaginas))}
             disabled={pagina === totalPaginas}
-            className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
-              pagina === totalPaginas ? "bg-gray-200 text-gray-400 cursor-not-allowed" : "bg-white border border-gray-300 hover:bg-gray-50 text-gray-700"
-            }`}
+            className="px-3 py-2 rounded-lg border"
           >
             Siguiente ➡
           </button>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

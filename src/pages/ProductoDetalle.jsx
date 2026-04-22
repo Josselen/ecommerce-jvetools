@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { dispararSweetBasico } from "../assets/SweetAlert";
-import { useCarrito } from '../context/CarritoContext';
+import { useCarrito } from "../context/CarritoContext";
+import { demoProducts } from "../data/demoProducts";
 
 function ProductoDetalle() {
   const { id } = useParams();
@@ -9,108 +9,104 @@ function ProductoDetalle() {
   const [cantidad, setCantidad] = useState(1);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
+
   const { agregarProducto } = useCarrito();
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
   useEffect(() => {
-    // DEBUG opcional
-    console.log('🔍 ID del producto:', id);
-    console.log('🌐 API_URL:', API_URL);
-
-    const url = `${API_URL}/api/productos/${id}`;
-    console.log('📡 URL completa:', url);
-
-    fetch(url)
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`);
-        }
-        return res.json();
-      })
-      .then((productoEncontrado) => {
-        if (productoEncontrado && !productoEncontrado.error) {
-          setProducto(productoEncontrado);
+    const cargarProducto = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/productos/${id}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        setProducto(data);
+      } catch (err) {
+        console.error("Usando producto demo:", err);
+        const local = demoProducts.find((p) => String(p.id) === String(id));
+        if (local) {
+          setProducto(local);
         } else {
-          setError(productoEncontrado.error || "Producto no encontrado.");
+          setError("Producto no encontrado.");
         }
+      } finally {
         setCargando(false);
-      })
-      .catch((err) => {
-        console.error("❌ Error completo:", err);
-        setError(`Error al obtener el producto: ${err.message}`);
-        setCargando(false);
-      });
+      }
+    };
+
+    cargarProducto();
   }, [id, API_URL]);
 
-  function agregarAlCarrito() {
-    if (cantidad < 1) return;
-    dispararSweetBasico("Producto Agregado", "El producto fue agregado al carrito con éxito", "success", "Cerrar");
-    agregarProducto({
-      id: producto.id,
-      nombre: producto.name,
-      precio: producto.precio_oferta && producto.precio_oferta > 0 ? Number(producto.precio_oferta) : Number(producto.price),
-      imagen: producto.imagen
-    }, cantidad);
-  }
+  const agregarAlCarritoHandler = () => {
+    if (!producto || cantidad < 1) return;
 
-  function sumarContador() {
-    setCantidad((prev) => prev + 1);
-  }
+    agregarProducto(
+      {
+        id: producto.id,
+        nombre: producto.name,
+        precio: Number(producto.precio_oferta || producto.price),
+        imagen: producto.imagen,
+      },
+      cantidad
+    );
+  };
 
-  function restarContador() {
-    setCantidad((prev) => (prev > 1 ? prev - 1 : 1));
-  }
-
-  if (cargando) return <p className="text-center mt-10">Cargando producto...</p>;
-  if (error) return <p className="text-center text-red-500 mt-10">{error}</p>;
-  if (!producto) return <p className="text-center mt-10">No se encontró el producto</p>;
+  if (cargando) return <p className="p-8">Cargando producto...</p>;
+  if (error) return <p className="p-8 text-red-600">{error}</p>;
+  if (!producto) return <p className="p-8">No se encontró el producto</p>;
 
   return (
-    <div className="max-w-4xl mx-auto mt-10 p-6 bg-white rounded-lg shadow-md flex flex-col md:flex-row gap-6">
-      <img
-        className="w-full md:w-[40%] h-auto max-h-[400px] object-contain bg-gray-100 rounded-lg p-4"
-        src={`/productos/${producto.imagen}`}
-        alt={producto.name}
-        onError={(e) => { e.target.src = '/placeholder-image.jpg'; }}
-      />
+    <div className="max-w-5xl mx-auto px-4 py-10 grid md:grid-cols-2 gap-10">
+      <div className="bg-white rounded-2xl shadow p-6">
+        <img
+          src={producto.imagen}
+          alt={producto.name}
+          onError={(e) => {
+            e.target.src = "/placeholder-image.jpg";
+          }}
+          className="w-full h-[360px] object-contain"
+        />
+      </div>
 
-      <div className="flex-1 flex flex-col gap-4 text-gray-800">
-        <h2 className="text-2xl font-semibold">{producto.name}</h2>
-        <p className="text-gray-600 leading-relaxed">{producto.description}</p>
+      <div>
+        <span className="inline-block mb-3 text-sm text-gray-500">
+          Demo portfolio
+        </span>
 
-        <div className="text-xl font-bold flex items-center gap-2">
-          {producto.precio_oferta && producto.precio_oferta > 0 && (
-            <span className="text-red-500 line-through text-lg">
-              ${parseFloat(producto.price).toFixed(2)}
-            </span>
-          )}
-          <span className="text-[#117287] text-2xl">
-            ${producto.precio_oferta && producto.precio_oferta > 0
-              ? parseFloat(producto.precio_oferta).toFixed(2)
-              : parseFloat(producto.price).toFixed(2)}
-          </span>
-          {producto.precio_oferta && producto.precio_oferta > 0 && (
-            <span className="bg-red-500 text-white text-xs px-2 py-1 rounded">
-              OFERTA
-            </span>
-          )}
-        </div>
+        <h2 className="text-3xl font-bold mb-4">{producto.name}</h2>
+        <p className="text-gray-600 mb-5">{producto.description}</p>
 
-        <div className="flex items-center gap-3 mt-2">
+        {producto.precio_oferta && producto.precio_oferta > 0 && (
+          <p className="text-gray-400 line-through mb-1">
+            ${parseFloat(producto.price).toFixed(2)}
+          </p>
+        )}
+
+        <p className="text-2xl font-bold text-green-600 mb-6">
+          $
+          {producto.precio_oferta && producto.precio_oferta > 0
+            ? parseFloat(producto.precio_oferta).toFixed(2)
+            : parseFloat(producto.price).toFixed(2)}
+        </p>
+
+        <div className="flex items-center gap-4 mb-6">
           <button
-            onClick={restarContador}
-            className="bg-gray-300 hover:bg-gray-400 text-black px-3 py-1 rounded"
-          >-</button>
-          <span className="text-lg">{cantidad}</span>
+            onClick={() => setCantidad((prev) => Math.max(prev - 1, 1))}
+            className="bg-gray-200 px-3 py-1 rounded"
+          >
+            -
+          </button>
+          <span>{cantidad}</span>
           <button
-            onClick={sumarContador}
-            className="bg-gray-300 hover:bg-gray-400 text-black px-3 py-1 rounded"
-          >+</button>
+            onClick={() => setCantidad((prev) => prev + 1)}
+            className="bg-gray-200 px-3 py-1 rounded"
+          >
+            +
+          </button>
         </div>
 
         <button
-          onClick={agregarAlCarrito}
-          className="mt-6 bg-[#117287] hover:bg-gray-800 text-white py-2 px-4 rounded font-semibold"
+          onClick={agregarAlCarritoHandler}
+          className="bg-black text-white px-6 py-3 rounded-xl"
         >
           Agregar al carrito
         </button>
