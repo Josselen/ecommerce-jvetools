@@ -9,7 +9,7 @@ import './index.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <AuthProvider>               {/* ✅ Envuelve aquí */}
+    <AuthProvider>               
       <CarritoProvider>
         <App />
       </CarritoProvider>

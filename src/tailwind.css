@@ -1,6 +1,9 @@
+/* Ensure Tailwind directives are correctly placed */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Ensure Tailwind is included in your build process */
 
 main {
     @apply min-h-[60vh] px-4 py-6;

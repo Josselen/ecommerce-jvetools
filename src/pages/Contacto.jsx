@@ -24,7 +24,7 @@ function Contacto() {
 
   return (
     <div className="p-6 bg-gray-100 font-sans">
-      {/* Banner */}
+      {/* Banner de Contacto*/}
       <div className="bg-[#117287] text-white p-8 rounded-xl text-center mb-8 shadow-md">
         <h1 className="text-3xl md:text-4xl font-semibold mb-2">Contacto</h1>
         <p className="text-base md:text-lg">¿Tenés dudas, consultas o querés trabajar con nosotros? ¡Escribinos!</p>

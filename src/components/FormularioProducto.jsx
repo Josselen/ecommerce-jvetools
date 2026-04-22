@@ -8,6 +8,8 @@ function FormularioProducto({ producto, onGuardado, onCancel }) {
     imagen: '',
   });
 
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
   useEffect(() => {
     setForm(
       producto || {
@@ -37,8 +39,8 @@ function FormularioProducto({ producto, onGuardado, onCancel }) {
     }
 
     const url = producto
-      ? `http://localhost:3001/productos/${producto.id}`
-      : 'http://localhost:3001/productos';
+      ? `${API_URL}/api/productos/${producto.id}`
+      : `${API_URL}/api/productos`;
     const method = producto ? 'PUT' : 'POST';
 
     try {
@@ -53,7 +55,7 @@ function FormularioProducto({ producto, onGuardado, onCancel }) {
       await response.json();
       onGuardado();
       setForm({ nombre: '', descripcion: '', precio: '', imagen: '' });
-      onCancel();
+      if (onCancel) onCancel();
     } catch (error) {
       console.error('Error al guardar producto:', error);
       alert('Error al guardar el producto.');
