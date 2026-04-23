@@ -38,7 +38,7 @@ function Checkout() {
     <div className="max-w-3xl mx-auto px-4 py-10">
       <h1 className="text-3xl font-bold mb-6">Checkout</h1>
       <p className="text-gray-600 mb-6">
-        Esta es una versión demo del checkout para portfolio.
+        Esta es una versión demo del checkout.
       </p>
 
       <form onSubmit={handlePago} className="bg-white rounded-2xl shadow p-6 space-y-4">
